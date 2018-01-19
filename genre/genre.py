@@ -68,7 +68,10 @@ def get_search_term(path, tag, query=None):
 
     return search_term
 
-def process(file, query, yes_if_exact, dry_run):
+def search_discogs(term):
+    results = client.search(term, type='release')
+    return results
+
 def process(file, query, yes_if_exact, skip_if_set, dry_run):
     path = pathlib.Path(file).absolute()
     audio_file = eyed3.load(str(path))
@@ -84,6 +87,7 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
         click.echo('Skipping {}, genre is already set to {}'.format(path.name, tag.genre))
         return True
 
+    results = search_discogs(search_term)
     release = None
 
     if results.count and yes_if_exact:
