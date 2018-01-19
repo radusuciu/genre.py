@@ -58,7 +58,6 @@ def save_auth(auth_file_path, token, secret):
 def get_search_term(path, tag, query=None):
     # prefer to use existing tags and fall back to filename
     # unless a specific query is specified
-    print(path, tag.artist, tag.album, query)
     if query:
         search_term = query
     elif tag and tag.artist and tag.album:
@@ -83,6 +82,9 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
 
     search_term = get_search_term(path, tag, query)
     results = client.search(search_term, type='release')
+    click.echo('Processing {}'.format(path.name))
+    click.echo('Search term: {}'.format(search_term))
+
     if skip_if_set and tag.genre:
         click.echo('Skipping {}, genre is already set to {}'.format(path.name, tag.genre))
         return True
