@@ -119,13 +119,12 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
             click.echo('Skipping {}'.format(path.name))
     elif not results.count:
         click.echo('No results found for {}'.format(search_term))
-        return False
 
-    tag.genre = ', '.join(release.styles)
-
-    if release and not dry_run:
-        tag.save(str(path))
-    elif not release and dry_run:
+    if release:
+        tag.genre = ', '.join(release.styles)
+        if not dry_run:
+            tag.save(str(path))
+    else:
         return False
 
     return True
