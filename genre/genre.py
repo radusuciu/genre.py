@@ -128,12 +128,12 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
     if results.count and not release:
         click.echo('Choose option from below, 0 to skip, just press enter to pick first release.')
 
-        for i, release in enumerate(results):
+        for i, rel in enumerate(results):
             if i == config.MAX_SEARCH_RESULTS:
                 break
-            artist = ', '.join(artist.name for artist in release.artists)
-            styles = release.styles if release.styles else release.genres
-            click.echo('[{}]\t: {} - {} [{}]'.format(i + 1, artist, release.title, ', '.join(styles)))
+            artist = ', '.join(artist.name for artist in rel.artists)
+            styles = rel.styles if rel.styles else rel.genres
+            click.echo('[{}]\t: {} - {} [{}]'.format(i + 1, artist, rel.title, ', '.join(styles)))
 
         choice = click.prompt('Choice', type=int, default=1)
         # subtract by one to adjust for zero indexing
