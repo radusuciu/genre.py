@@ -8,6 +8,7 @@ import pathlib
 import colorama
 import pickle
 import logging
+import time
 
 # quiet about non-standard genres
 eyed3_log.setLevel(logging.ERROR)
@@ -22,9 +23,30 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
 def main(files, query, yes_if_exact, skip_if_set, dry_run):
-    if auth():
-        for file in files:
-            process(file, query, yes_if_exact, skip_if_set, dry_run)
+    if not auth():
+        return False
+
+    for file in files:
+        retries = 0
+
+        while retries < config.MAX_RETRIES:
+            try:
+                result = process(file, query, yes_if_exact, skip_if_set, dry_run)
+
+                if result:
+                    click.echo('Genre for {} set to {}'.format(*result))
+                else:
+                    click.echo('Genre for {} not changed'.format(file))
+                break
+            except HTTPError as e:
+                if e.status_code == 429:
+                    click.echo('Making too many requests to discogs, trying again in {} seconds.'.format(str(config.RETRY_PAUSE)))
+                    retries = retries + 1
+                    time.sleep(config.RETRY_PAUSE)
+                    continue
+
+        # pause for REQUEST_PAUSE seconds to avoid hammering discogs API too hard
+        time.sleep(config.REQUEST_PAUSE)
 
 def auth():
     auth_file_path = pathlib.Path(config.AUTH_FILE)
@@ -84,7 +106,7 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
 
     if skip_if_set and tag.genre:
         click.echo('Skipping {}, genre is already set to {}'.format(path.name, tag.genre))
-        return True
+        return False
 
     results = search_discogs(search_term)
     release = None
@@ -121,13 +143,14 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
         click.echo('No results found for {}'.format(search_term))
 
     if release:
-        tag.genre = ', '.join(release.styles)
+        genre = ', '.join(release.styles)
+        tag.genre = genre
         if not dry_run:
             tag.save(str(path))
-    else:
-        return False
+        return (path.name, genre)
 
-    return True
+    return False
+
 
 
 if __name__ == '__main__':
