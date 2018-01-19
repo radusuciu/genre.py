@@ -24,3 +24,4 @@ DISCOGS_SECRET = _SECRETS['discogs']['SECRET']
 
 USER_AGENT = 'genre.py'
 AUTH_FILE = 'discogs.auth'
+MAX_SEARCH_RESULTS = 5
