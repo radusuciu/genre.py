@@ -1,9 +1,9 @@
 from eyed3.utils.log import log as eyed3_log
+import genre.config as config
 import eyed3
 import click
 import discogs_client
 import pathlib
-import config
 import colorama
 import pickle
 import logging

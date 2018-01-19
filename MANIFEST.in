@@ -1,0 +1,4 @@
+include README.md
+include LICENSE 
+include genre/secrets.yml
+include genre/secrets.override.yml
