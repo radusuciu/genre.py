@@ -39,3 +39,5 @@ REQUEST_PAUSE = 1
 # time in seconds to wait between retries
 RETRY_PAUSE = 30
 
+# default max number of genres to allow in a tag, can be overwritten by tag
+DEFAULT_MAX_GENRES = 3

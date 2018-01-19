@@ -18,14 +18,15 @@ client = discogs_client.Client(config.USER_AGENT)
 client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 
 @click.command()
-@click.option('--query', '-q',  help='Specify a query to use when searching for a matching track.')
+@click.option('--query', '-q',  help='Specify a query to use when searching for a matching track')
+@click.option('--max-genres', '-m',  help='Maximum number of genres to allow in a tag', default=config.DEFAULT_MAX_GENRES)
 @click.option('--yes-if-exact', '-y', help='Do not wait for user confirmation if match is exact', flag_value=True)
 @click.option('--skip-if-set', '-s', help='Skip lookup if a genre has already been set', flag_value=True)
 @click.option('--reset-genre', '-r', help='Reset genre before looking up', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.version_option(version=config.VERSION)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
-def main(files, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
+def main(files, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_run):
     if not auth():
         return False
 
@@ -34,7 +35,7 @@ def main(files, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
 
         while retries < config.MAX_RETRIES:
             try:
-                result = process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run)
+                result = process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_run)
 
                 if result:
                     click.echo('Genre for:\t{} set to {}'.format(*result))
@@ -78,23 +79,31 @@ def save_auth(auth_file_path, token, secret):
     with auth_file_path.open('wb') as f:
         pickle.dump((token, secret), f)
 
-def get_search_term(path, tag, query=None):
+def search_discogs(path, tag, query):
     # prefer to use existing tags and fall back to filename
     # unless a specific query is specified
-    if query:
-        search_term = query
-    elif tag and tag.artist and tag.album:
-        search_term = '{} {}'.format(tag.artist, tag.album)
-    else:
-        search_term = path.stem
+    use_tag =  tag and tag.artist and tag.album
 
-    return search_term
+    if query or not use_tag:
+        results = client.search(query if query else path.stem, type='release')
+    elif use_tag:
+        results = client.search(tag.album, artist=tag.artist, album=tag.album, type='release')
 
-def search_discogs(term):
-    results = client.search(term, type='release')
     return results
 
-def process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
+
+def is_exact_match(tag, release):
+    # report exact match only for files with tags
+    if not (tag and tag.artist and tag.album):
+        return False
+
+    release_artists = set(artist.name for artist in release.artists)
+    tag_artists = set(a.strip() for a in tag.artist.split(','))
+
+    return release_artists == tag_artists and release.title == tag.album
+
+
+def process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_run):
     path = pathlib.Path(file).absolute()
     audio_file = eyed3.load(str(path))
     tag = audio_file.tag
@@ -103,9 +112,7 @@ def process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
         audio_file.initTag(version=eyed3.id3.ID3_V2_3)
         tag = audio_file.tag
 
-    search_term = get_search_term(path, tag, query)
     click.echo('Processing:\t{}'.format(path.name))
-    click.echo('Search term:\t{}'.format(search_term))
 
     if reset_genre:
         tag.genre = Genre()
@@ -116,17 +123,13 @@ def process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
         click.echo('Skipping:\t{}, genre is already set to {}'.format(path.name, tag.genre))
         return False
 
-    results = search_discogs(search_term)
+    results = search_discogs(path, tag, query)
     release = None
 
-    if results.count and yes_if_exact:
-        first_release = results[0]
-        artist = ', '.join(artist.name for artist in first_release.artists)
-
-        if search_term == '{} {}'.format(artist, first_release.title):
-            release = first_release
-            styles = release.styles if release.styles else release.genres
-            click.echo('Found exact match for {}: {}'.format(search_term, ', '.join(styles)))
+    if results.count and yes_if_exact and is_exact_match(tag, results[0]):
+        release = results[0]
+        styles = release.styles[:max_genres] if release.styles else release.genres
+        click.echo('Found exact match for {}: {}'.format(path.name, ', '.join(styles)))
 
     # if we have results, and haven't already found an exact match
     # then we iterate over results and ask user to enter the index 
@@ -138,7 +141,7 @@ def process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
             if i == config.MAX_SEARCH_RESULTS:
                 break
             artist = ', '.join(artist.name for artist in rel.artists)
-            styles = rel.styles if rel.styles else rel.genres
+            styles = rel.styles[:max_genres] if rel.styles else rel.genres
             click.echo('[{}]\t: {} - {} [{}]'.format(i + 1, artist, rel.title, ', '.join(styles)))
 
         choice = click.prompt('Choice', type=int, default=1)
@@ -148,10 +151,10 @@ def process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
         elif choice <= 0:
             click.echo('Skipping:\t{}'.format(path.name))
     elif not results.count:
-        click.echo('No results found for {}'.format(search_term))
+        click.echo('No results found for {}'.format(path.stem))
 
     if release:
-        genre = ', '.join(release.styles)
+        genre = ', '.join(release.styles[:max_genres])
         tag.genre = genre
         if not dry_run:
             tag.save(str(path))
