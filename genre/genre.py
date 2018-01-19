@@ -1,6 +1,7 @@
 from eyed3.utils.log import log as eyed3_log
 from discogs_client.exceptions import HTTPError
 import genre.config as config
+from eyed3.id3 import Genre
 import eyed3
 import click
 import discogs_client
@@ -18,11 +19,12 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 
 @click.command()
 @click.option('--query', '-q',  help='Specify a query to use when searching for a matching track.')
-@click.option('--yes-if-exact', '-y', help='Do not wait for user confirmtion if match is exact', flag_value=True)
+@click.option('--yes-if-exact', '-y', help='Do not wait for user confirmation if match is exact', flag_value=True)
 @click.option('--skip-if-set', '-s', help='Skip lookup if a genre has already been set', flag_value=True)
+@click.option('--reset-genre', '-r', help='Reset genre before looking up', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
-def main(files, query, yes_if_exact, skip_if_set, dry_run):
+def main(files, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
     if not auth():
         return False
 
@@ -31,7 +33,7 @@ def main(files, query, yes_if_exact, skip_if_set, dry_run):
 
         while retries < config.MAX_RETRIES:
             try:
-                result = process(file, query, yes_if_exact, skip_if_set, dry_run)
+                result = process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run)
 
                 if result:
                     click.echo('Genre for:\t{} set to {}'.format(*result))
@@ -91,7 +93,7 @@ def search_discogs(term):
     results = client.search(term, type='release')
     return results
 
-def process(file, query, yes_if_exact, skip_if_set, dry_run):
+def process(file, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
     path = pathlib.Path(file).absolute()
     audio_file = eyed3.load(str(path))
     tag = audio_file.tag
@@ -101,10 +103,13 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
         tag = audio_file.tag
 
     search_term = get_search_term(path, tag, query)
-    click.echo('Processing {}'.format(path.name))
-    click.echo('Search term: {}'.format(search_term))
     click.echo('Processing:\t{}'.format(path.name))
     click.echo('Search term:\t{}'.format(search_term))
+
+    if reset_genre:
+        tag.genre = Genre()
+        if not dry_run:
+            tag.save()
 
     if skip_if_set and tag.genre:
         click.echo('Skipping:\t{}, genre is already set to {}'.format(path.name, tag.genre))
