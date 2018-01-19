@@ -23,6 +23,7 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 @click.option('--skip-if-set', '-s', help='Skip lookup if a genre has already been set', flag_value=True)
 @click.option('--reset-genre', '-r', help='Reset genre before looking up', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
+@click.version_option(version=config.VERSION)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
 def main(files, query, yes_if_exact, skip_if_set, reset_genre, dry_run):
     if not auth():

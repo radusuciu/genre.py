@@ -1,9 +1,11 @@
 from pkg_resources import resource_string
+from version import __version__
 import pathlib
 import yaml
 import os
 
 PROJECT_HOME_PATH = pathlib.Path(os.path.realpath(__file__)).parent
+VERSION = __version__
 
 try:
     _secrets_path = PROJECT_HOME_PATH.joinpath('secrets.yml')
@@ -36,3 +38,4 @@ REQUEST_PAUSE = 1
 
 # time in seconds to wait between retries
 RETRY_PAUSE = 30
+
