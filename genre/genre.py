@@ -108,8 +108,11 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
 
         choice = click.prompt('Choice', type=int, default=1)
         # subtract by one to adjust for zero indexing
-        release = results[choice - 1]
-    elif not release:
+        if choice:
+            release = results[choice - 1]
+        elif choice <= 0:
+            click.echo('Skipping {}'.format(path.name))
+    elif not results.count:
         click.echo('No results found for {}'.format(search_term))
         return False
 
