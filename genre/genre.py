@@ -18,12 +18,15 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 @click.command()
 @click.option('--query', '-q',  help='Specify a query to use when searching for a matching track.')
 @click.option('--yes-if-exact', '-y', help='Do not wait for user confirmtion if match is exact', flag_value=True)
+@click.option('--skip-if-set', '-s', help='Skip lookup if a genre has already been set', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
 def main(files, query, yes_if_exact, dry_run):
+def main(files, query, yes_if_exact, skip_if_set, dry_run):
     if auth():
         for file in files:
             process(file, query, yes_if_exact, dry_run)
+            process(file, query, yes_if_exact, skip_if_set, dry_run)
 
 def auth():
     auth_file_path = pathlib.Path(config.AUTH_FILE)
@@ -66,6 +69,7 @@ def get_search_term(path, tag, query=None):
     return search_term
 
 def process(file, query, yes_if_exact, dry_run):
+def process(file, query, yes_if_exact, skip_if_set, dry_run):
     path = pathlib.Path(file).absolute()
     audio_file = eyed3.load(str(path))
     tag = audio_file.tag
@@ -76,6 +80,9 @@ def process(file, query, yes_if_exact, dry_run):
 
     search_term = get_search_term(path, tag, query)
     results = client.search(search_term, type='release')
+    if skip_if_set and tag.genre:
+        click.echo('Skipping {}, genre is already set to {}'.format(path.name, tag.genre))
+        return True
 
     release = None
 
