@@ -21,11 +21,9 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 @click.option('--skip-if-set', '-s', help='Skip lookup if a genre has already been set', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
-def main(files, query, yes_if_exact, dry_run):
 def main(files, query, yes_if_exact, skip_if_set, dry_run):
     if auth():
         for file in files:
-            process(file, query, yes_if_exact, dry_run)
             process(file, query, yes_if_exact, skip_if_set, dry_run)
 
 def auth():
@@ -81,7 +79,6 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
         tag = audio_file.tag
 
     search_term = get_search_term(path, tag, query)
-    results = client.search(search_term, type='release')
     click.echo('Processing {}'.format(path.name))
     click.echo('Search term: {}'.format(search_term))
 
