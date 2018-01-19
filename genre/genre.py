@@ -34,9 +34,9 @@ def main(files, query, yes_if_exact, skip_if_set, dry_run):
                 result = process(file, query, yes_if_exact, skip_if_set, dry_run)
 
                 if result:
-                    click.echo('Genre for {} set to {}'.format(*result))
+                    click.echo('Genre for:\t{} set to {}'.format(*result))
                 else:
-                    click.echo('Genre for {} not changed'.format(file))
+                    click.echo('Genre for:\t{} not changed'.format(file))
                 break
             except HTTPError as e:
                 if e.status_code == 429:
@@ -103,9 +103,11 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
     search_term = get_search_term(path, tag, query)
     click.echo('Processing {}'.format(path.name))
     click.echo('Search term: {}'.format(search_term))
+    click.echo('Processing:\t{}'.format(path.name))
+    click.echo('Search term:\t{}'.format(search_term))
 
     if skip_if_set and tag.genre:
-        click.echo('Skipping {}, genre is already set to {}'.format(path.name, tag.genre))
+        click.echo('Skipping:\t{}, genre is already set to {}'.format(path.name, tag.genre))
         return False
 
     results = search_discogs(search_term)
@@ -138,7 +140,7 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
         if choice:
             release = results[choice - 1]
         elif choice <= 0:
-            click.echo('Skipping {}'.format(path.name))
+            click.echo('Skipping:\t{}'.format(path.name))
     elif not results.count:
         click.echo('No results found for {}'.format(search_term))
 
