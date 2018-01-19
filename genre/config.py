@@ -24,4 +24,15 @@ DISCOGS_SECRET = _SECRETS['discogs']['SECRET']
 
 USER_AGENT = 'genre.py'
 AUTH_FILE = 'discogs.auth'
+
+# max search results per query to discogs
 MAX_SEARCH_RESULTS = 5
+
+# max number of retries
+MAX_RETRIES = 2 
+
+# time in seconds to wait between requests
+REQUEST_PAUSE = 1
+
+# time in seconds to wait between retries
+RETRY_PAUSE = 30
