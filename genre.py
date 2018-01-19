@@ -16,12 +16,13 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 
 @click.command()
 @click.option('--query', '-q',  help='Specify a query to use when searching for a matching track.')
+@click.option('--yes-if-exact', '-y', help='Do not wait for user confirmtion if match is exact', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
-def main(files, query, dry_run):
+def main(files, query, yes_if_exact, dry_run):
     if auth():
         for file in files:
-            process(file, query, dry_run)
+            process(file, query, yes_if_exact, dry_run)
 
 def auth():
     auth_file_path = pathlib.Path(config.AUTH_FILE)
@@ -63,7 +64,7 @@ def get_search_term(path, tag, query=None):
 
     return search_term
 
-def process(file, query, dry_run):
+def process(file, query, yes_if_exact, dry_run):
     path = pathlib.Path(file).absolute()
     audio_file = eyed3.load(str(path))
     tag = audio_file.tag
@@ -74,9 +75,21 @@ def process(file, query, dry_run):
 
     search_term = get_search_term(path, tag, query)
     results = client.search(search_term, type='release')
+
     release = None
 
-    if results.count > 0:
+    if results.count and yes_if_exact:
+        first_release = results[0]
+        artist = ', '.join(artist.name for artist in first_release.artists)
+
+        if search_term == '{} {}'.format(artist, first_release.title):
+            release = first_release
+            click.echo('Found exact match for {}: {}'.format(search_term, ', '.join(release.styles)))
+
+    # if we have results, and haven't already found an exact match
+    # then we iterate over results and ask user to enter the index 
+    # of their choice
+    if results.count and not release:
         click.echo('Choose option from below, 0 to skip, just press enter to pick first release.')
 
         for i, release in enumerate(results):
@@ -86,7 +99,7 @@ def process(file, query, dry_run):
         choice = click.prompt('Choice', type=int, default=1)
         # subtract by one to adjust for zero indexing
         release = results[choice - 1]
-    else:
+    elif not release:
         click.echo('No results found for {}'.format(search_term))
 
     tag.genre = ', '.join(release.styles)
