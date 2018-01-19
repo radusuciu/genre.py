@@ -98,7 +98,8 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
 
         if search_term == '{} {}'.format(artist, first_release.title):
             release = first_release
-            click.echo('Found exact match for {}: {}'.format(search_term, ', '.join(release.styles)))
+            styles = release.styles if release.styles else release.genres
+            click.echo('Found exact match for {}: {}'.format(search_term, ', '.join(styles)))
 
     # if we have results, and haven't already found an exact match
     # then we iterate over results and ask user to enter the index 
@@ -110,7 +111,8 @@ def process(file, query, yes_if_exact, skip_if_set, dry_run):
             if i == config.MAX_SEARCH_RESULTS:
                 break
             artist = ', '.join(artist.name for artist in release.artists)
-            click.echo('[{}]\t: {} - {} [{}]'.format(i + 1, artist, release.title, ', '.join(release.styles)))
+            styles = release.styles if release.styles else release.genres
+            click.echo('[{}]\t: {} - {} [{}]'.format(i + 1, artist, release.title, ', '.join(styles)))
 
         choice = click.prompt('Choice', type=int, default=1)
         # subtract by one to adjust for zero indexing
