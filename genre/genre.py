@@ -1,4 +1,5 @@
 from eyed3.utils.log import log as eyed3_log
+from discogs_client.exceptions import HTTPError
 import genre.config as config
 import eyed3
 import click
@@ -36,7 +37,7 @@ def auth():
         try:
             token, secret = client.get_access_token(oauth_verifier)
             save_auth(auth_file_path, token, secret)
-        except discogs_client.HTTPError:
+        except HTTPError:
             click.echo('Authetication failure.')
     else:
         client.set_token(*get_auth(auth_file_path))
@@ -101,6 +102,7 @@ def process(file, query, yes_if_exact, dry_run):
         release = results[choice - 1]
     elif not release:
         click.echo('No results found for {}'.format(search_term))
+        return False
 
     tag.genre = ', '.join(release.styles)
 
