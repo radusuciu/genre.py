@@ -113,6 +113,9 @@ def process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry
         tag = audio_file.tag
 
     click.echo('Processing:\t{}'.format(path.name))
+    click.echo('Artist: {}, Title: {}, Album: {}, Genre: {}'.format(
+        tag.artist, tag.title, tag.album, tag.genre
+    ))
 
     if reset_genre:
         tag.genre = Genre()
