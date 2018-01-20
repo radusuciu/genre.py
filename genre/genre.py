@@ -1,6 +1,8 @@
 from eyed3.utils.log import log as eyed3_log
 from discogs_client.exceptions import HTTPError
 from eyed3.id3 import Genre
+from difflib import SequenceMatcher
+import genre.config as config
 import eyed3
 import click
 import discogs_client

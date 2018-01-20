@@ -1,5 +1,5 @@
 from pkg_resources import resource_string
-from version import __version__
+from genre.version import __version__
 import pathlib
 import yaml
 import os
