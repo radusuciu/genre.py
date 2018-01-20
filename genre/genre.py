@@ -1,6 +1,5 @@
 from eyed3.utils.log import log as eyed3_log
 from discogs_client.exceptions import HTTPError
-import genre.config as config
 from eyed3.id3 import Genre
 import eyed3
 import click
@@ -21,12 +20,13 @@ client.set_consumer_key(config.DISCOGS_KEY, config.DISCOGS_SECRET)
 @click.option('--query', '-q',  help='Specify a query to use when searching for a matching track')
 @click.option('--max-genres', '-m',  help='Maximum number of genres to allow in a tag', default=config.DEFAULT_MAX_GENRES)
 @click.option('--yes-if-exact', '-y', help='Do not wait for user confirmation if match is exact', flag_value=True)
+@click.option('--relax', '-r', help='Relax exactness definition', flag_value=True)
 @click.option('--skip-if-set', '-s', help='Skip lookup if a genre has already been set', flag_value=True)
-@click.option('--reset-genre', '-r', help='Reset genre before looking up', flag_value=True)
+@click.option('--reset-genre', '-R', help='Reset genre before looking up', flag_value=True)
 @click.option('--dry-run', '-d', help='Perform lookup but do not write tags.', flag_value=True)
 @click.version_option(version=config.VERSION)
 @click.argument('files', nargs=-1, type=click.Path(exists=True, dir_okay=False, readable=True, writable=True))
-def main(files, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_run):
+def main(files, query, max_genres, yes_if_exact, relax, skip_if_set, reset_genre, dry_run):
     if not auth():
         return False
 
@@ -35,7 +35,7 @@ def main(files, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_r
 
         while retries < config.MAX_RETRIES:
             try:
-                result = process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_run)
+                result = process(file, query, max_genres, yes_if_exact, relax, skip_if_set, reset_genre, dry_run)
 
                 if result:
                     click.echo('Genre for:\t{} set to {}'.format(*result))
@@ -92,18 +92,26 @@ def search_discogs(path, tag, query):
     return results
 
 
-def is_exact_match(tag, release):
+def is_exact_match(tag, release, relax):
     # report exact match only for files with tags
     if not (tag and tag.artist and tag.album):
         return False
 
-    release_artists = set(artist.name for artist in release.artists)
-    tag_artists = set(a.strip() for a in tag.artist.split(','))
+    pre = lambda a: a.strip().lower().replace('\'', '')
 
-    return release_artists == tag_artists and release.title == tag.album
+    release_artists = set(pre(artist.name) for artist in release.artists)
+    tag_artists = set(pre(a) for a in tag.artist.split(','))
+
+    if relax:
+        return (
+            len(release_artists & tag_artists) and
+            SequenceMatcher(None, tag.album, release.title).ratio() >= config.MIN_MATCH_RATIO
+        )
+    else:
+        return release_artists == tag_artists and release.title == tag.album
 
 
-def process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry_run):
+def process(file, query, max_genres, yes_if_exact, relax, skip_if_set, reset_genre, dry_run):
     path = pathlib.Path(file).absolute()
     audio_file = eyed3.load(str(path))
     tag = audio_file.tag
@@ -117,11 +125,6 @@ def process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry
         tag.artist, tag.title, tag.album, tag.genre
     ))
 
-    if reset_genre:
-        tag.genre = Genre()
-        if not dry_run:
-            tag.save()
-
     if skip_if_set and tag.genre:
         click.echo('Skipping:\t{}, genre is already set to {}'.format(path.name, tag.genre))
         return False
@@ -129,10 +132,15 @@ def process(file, query, max_genres, yes_if_exact, skip_if_set, reset_genre, dry
     results = search_discogs(path, tag, query)
     release = None
 
-    if results.count and yes_if_exact and is_exact_match(tag, results[0]):
+    if results.count and yes_if_exact and is_exact_match(tag, results[0], relax):
         release = results[0]
         styles = release.styles[:max_genres] if release.styles else release.genres
         click.echo('Found exact match for {}: {}'.format(path.name, ', '.join(styles)))
+
+    if reset_genre:
+        tag.genre = Genre()
+        if not dry_run:
+            tag.save()
 
     # if we have results, and haven't already found an exact match
     # then we iterate over results and ask user to enter the index 

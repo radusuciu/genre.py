@@ -41,3 +41,6 @@ RETRY_PAUSE = 30
 
 # default max number of genres to allow in a tag, can be overwritten by tag
 DEFAULT_MAX_GENRES = 3
+
+# minimum SequenceMatcher ratio to consider something "exact enough"
+MIN_MATCH_RATIO = 0.7
